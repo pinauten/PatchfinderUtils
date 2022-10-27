@@ -18,7 +18,7 @@ let package = Package(
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         .package(name: "SwiftUtils", url: "https://github.com/pinauten/SwiftUtils", .branch("master")),
-        .package(name: "SwiftMachO", path: "../SwiftMachO")
+        .package(name: "SwiftMachO", url: "https://github.com/pinauten/SwiftMachO", .branch("master"))
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
