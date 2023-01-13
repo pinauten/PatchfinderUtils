@@ -71,7 +71,7 @@ fileprivate func getKernelcachePath() -> String? {
     
     #if os(iOS)
     
-    guard let hash = IORegistryEntryCreateCFProperty(chosen, "boot-manifest-hash" as CFString, kCFAllocatorDefault, 0).takeRetainedValue() as? Data else {
+    guard let hash = IORegistryEntryCreateCFProperty(chosen, "boot-manifest-hash" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? Data else {
         return nil
     }
     
@@ -84,7 +84,7 @@ fileprivate func getKernelcachePath() -> String? {
     
     #else
     
-    guard let dat = IORegistryEntryCreateCFProperty(chosen, "boot-objects-path" as CFString, kCFAllocatorDefault, 0).takeRetainedValue() as? Data else {
+    guard let dat = IORegistryEntryCreateCFProperty(chosen, "boot-objects-path" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? Data else {
         return nil
     }
     

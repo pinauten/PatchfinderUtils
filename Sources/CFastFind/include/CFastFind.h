@@ -36,7 +36,7 @@ uint64_t find_xref_branch(const void * __nonnull start, const void * __nonnull e
 extern const mach_port_t kIOMasterPortDefault;
 
 extern mach_port_t IORegistryEntryFromPath(mach_port_t mainPort, const io_string_t __nonnull path);
-extern CFTypeRef __nonnull IORegistryEntryCreateCFProperty(mach_port_t entry, CFStringRef __nonnull key, CFAllocatorRef __nullable allocator, uint32_t options);
+extern CFTypeRef __nullable IORegistryEntryCreateCFProperty(mach_port_t entry, CFStringRef __nonnull key, CFAllocatorRef __nullable allocator, uint32_t options);
 extern kern_return_t IOObjectRelease(mach_port_t object);
 
 #endif /* CFastFind_h */
