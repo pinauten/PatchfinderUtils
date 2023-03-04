@@ -61,7 +61,7 @@ public func loadImg4Kernel(path: String) -> Data? {
 
 #if arch(arm64) && (os(macOS) || os(iOS))
 
-fileprivate func getKernelcachePath() -> String? {
+public func getKernelcachePath() -> String? {
     let chosen = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/chosen")
     if chosen == 0 {
         return nil
