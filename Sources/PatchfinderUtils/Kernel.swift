@@ -97,11 +97,55 @@ public func getKernelcachePath() -> String? {
     #endif
 }
 
+public func getKernelcacheDecompressedPath() -> String? {
+    let chosen = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/chosen")
+    if chosen == 0 {
+        return nil
+    }
+    
+    defer { IOObjectRelease(chosen) }
+    
+    #if os(iOS)
+    
+    guard let hash = IORegistryEntryCreateCFProperty(chosen, "boot-manifest-hash" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? Data else {
+        return nil
+    }
+    
+    var bmhStr = ""
+    for byte in hash {
+        bmhStr += String(format: "%02X", byte)
+    }
+    
+    return "/private/preboot/\(bmhStr)/kernelcache.decompressed"
+    
+    #else
+    
+    guard let dat = IORegistryEntryCreateCFProperty(chosen, "boot-objects-path" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? Data else {
+        return nil
+    }
+    
+    if let bop = String(data: dat.dropLast(), encoding: .ascii) {
+        return "/System/Volumes/Preboot/\(bop)/kernelcache.decompressed"
+    }
+    
+    return nil
+    
+    #endif
+}
+
 #endif
 
 public extension MachO {
     static var runningKernel: MachO? {
         #if arch(arm64) && (os(macOS) || os(iOS))
+        if let path = getKernelcacheDecompressedPath() {
+            if let data = try? Data(contentsOf: URL(fileURLWithPath: path)) {
+                if let machO = try? MachO(fromData: data, okToLoadFAT: false) {
+                    return machO
+                }
+            }
+        }
+        
         if let path = getKernelcachePath() {
             if let decomp = loadImg4Kernel(path: path) {
                 return try? MachO(fromData: decomp, okToLoadFAT: false)
