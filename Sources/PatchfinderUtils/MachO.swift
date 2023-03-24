@@ -13,6 +13,17 @@ import CFastFind
 public extension MachO {
     /// Return a PatchfinderSegment for a named segment, optionally sliding it.
     func pfSegment(forName name: String, slide: UInt64 = 0) -> PatchfinderSegment? {
+        var cmds = self.cmds
+        if filesetEntries.count != 0 {
+            cmds = []
+            for fe in filesetEntries {
+                if let peek = try? MachO(fromData: self.data.subdata(in: Int(fe.fileOffset)..<Int(fe.fileOffset + 0x4000))) {
+                    cmds += peek.cmds
+                }
+            }
+        }
+        
+        var subSegments: [PatchfinderSubSegment] = []
         for lc in cmds {
             if let slc = lc as? Segment64LoadCommand {
                 if slc.name == name {
@@ -25,16 +36,31 @@ public extension MachO {
                         return nil
                     }
                     
-                    return PatchfinderSegment(data: dat, baseAddress: slc.vmAddr + slide, name: slc.name)
+                    subSegments.append(PatchfinderSubSegment(data: dat, baseAddress: slc.vmAddr + slide, name: slc.name))
                 }
             }
         }
         
-        return nil
+        guard subSegments.count != 0 else {
+            return nil
+        }
+        
+        return PatchfinderSegment(subSegments: subSegments, name: name)
     }
     
     /// Return a PatchfinderSegment for a named section, optionally sliding it.
     func pfSection(segment seg: String, section: String, slide: UInt64 = 0) -> PatchfinderSegment? {
+        var cmds = self.cmds
+        if filesetEntries.count != 0 {
+            cmds = []
+            for fe in filesetEntries {
+                if let peek = try? MachO(fromData: self.data.subdata(in: Int(fe.fileOffset)..<Int(fe.fileOffset + 0x4000))) {
+                    cmds += peek.cmds
+                }
+            }
+        }
+        
+        var subSegments: [PatchfinderSubSegment] = []
         for lc in cmds {
             if let slc = lc as? Segment64LoadCommand {
                 if slc.name == seg {
@@ -54,35 +80,47 @@ public extension MachO {
                                 return nil
                             }
                             
-                            return PatchfinderSegment(data: dat, baseAddress: sect.address + slide, name: "\(seg),\(section)")
+                            subSegments.append(PatchfinderSubSegment(data: dat, baseAddress: sect.address + slide, name: "\(seg),\(section)"))
                         }
                     }
                 }
             }
         }
         
-        return nil
+        guard subSegments.count != 0 else {
+            return nil
+        }
+        
+        return PatchfinderSegment(subSegments: subSegments, name: "\(seg),\(section)")
     }
     
     /// Return PatchfinderSegments for all segments, optionally sliding them.
-    func pfAllSegments(slide: UInt64 = 0) -> [PatchfinderSegment] {
-        var res: [PatchfinderSegment] = []
-        for lc in cmds {
-            if let slc = lc as? Segment64LoadCommand {
-                if slc.fileSize != 0 {
-                    let segRange = Int(slc.fileOffset)..<Int(slc.fileOffset+slc.fileSize)
-                    if let dat = data.trySubdata(in: segRange) {
-                        let pfs = PatchfinderSegment(data: dat, baseAddress: slc.vmAddr + slide, name: slc.name)
-                        res.append(pfs)
-                    }
+    func pfAllSubSegments(slide: UInt64 = 0) -> [PatchfinderSubSegment] {
+        var res: [PatchfinderSubSegment] = []
+        var cmds = self.cmds
+        if filesetEntries.count != 0 {
+            cmds = []
+            for fe in filesetEntries {
+                if let peek = try? MachO(fromData: self.data.subdata(in: Int(fe.fileOffset)..<Int(fe.fileOffset + 0x4000))) {
+                    cmds += peek.cmds
                 }
             }
         }
         
-        // Sort in ascending order by base address
-        res.sort { $0.baseAddress < $1.baseAddress }
+        for lc in cmds {
+            if let slc = lc as? Segment64LoadCommand {
+                let segRange = Int(slc.fileOffset)..<Int(slc.fileOffset+slc.fileSize)
+                if let dat = data.trySubdata(in: segRange) {
+                    let pfss = PatchfinderSubSegment(data: dat, baseAddress: slc.vmAddr + slide, name: slc.name)
+                    res.append(pfss)
+                }
+            }
+        }
         
-        return res
+        return res.sorted { a, b in
+            // Sort by baseAddress
+            a.baseAddress < b.baseAddress
+        }
     }
     
     /**
@@ -97,7 +135,7 @@ public extension MachO {
     func pfFindNextXref(to: UInt64, startAt: UInt64? = nil, slide: UInt64 = 0) -> UInt64? {
         var startAt = startAt
         
-        for seg in pfAllSegments(slide: slide) {
+        for seg in pfAllSubSegments(slide: slide) {
             let s = startAt ?? seg.baseAddress
             let end = seg.baseAddress + UInt64(seg.data.count)
             if case seg.baseAddress..<end = s {
@@ -106,7 +144,7 @@ public extension MachO {
                 }
                 
                 // Nope, clear startAt since we now want to check all other segments
-                // (only works because pfAllSegments sorts the segments)
+                // (only works because pfAllSubSegments sorts the subsegments by baseAddress)
                 startAt = nil
             }
         }

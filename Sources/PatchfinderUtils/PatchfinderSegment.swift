@@ -22,9 +22,148 @@ public enum PatchfinderXrefOptimization {
 }
 
 public class PatchfinderSegment {
+    public let subSegments: [PatchfinderSubSegment]
+    public let name: String?
+    
+    public init(subSegments: [PatchfinderSubSegment], name: String? = nil) {
+        self.subSegments = subSegments.sorted(by: { a, b in
+            a.baseAddress < b.baseAddress
+        })
+        
+        self.name = name
+    }
+    
+    /**
+     * Find a cross reference to some value, optionally starting at a given address.
+     *
+     * - Parameter to: The value to cross-reference
+     * - Parameter startAt: Optional start address for the search, *must* be valid!
+     * - Parameter optimization: Optional optimization strategy, see PatchfinderXrefOptimization
+     *
+     * - Returns: Address which references **to**, if any
+     */
+    public func findNextXref(to: UInt64, startAt: UInt64? = nil, optimization: PatchfinderXrefOptimization = .none) -> UInt64? {
+        var cur = startAt
+        
+        for s in subSegments {
+            if cur == nil {
+                cur = s.baseAddress
+            }
+            
+            if cur.unsafelyUnwrapped >= s.baseAddress && cur.unsafelyUnwrapped < s.endAddress {
+                if let res = s.findNextXref(to: to, startAt: cur, optimization: optimization) {
+                    return res
+                }
+                
+                // Searched this subsegment -> Start at the beginning of the next one
+                cur = nil
+            }
+        }
+        
+        return nil
+    }
+    
+    /**
+     * Find the address of some instructions.
+     *
+     * - Parameter toFind: The instructions to find
+     * - Parameter startAt: The address at which to start the search, defaults to the base address of the first subSegment
+     *
+     * - Returns: The address at which the instructions where found or nil
+     */
+    public func addrOf(_ toFind: [UInt32], startAt: UInt64? = nil) -> UInt64? {
+        var cur = startAt
+        
+        for s in subSegments {
+            if cur == nil {
+                cur = s.baseAddress
+            }
+            
+            if cur.unsafelyUnwrapped >= s.baseAddress && cur.unsafelyUnwrapped < s.endAddress {
+                if let res = s.addrOf(toFind, startAt: cur) {
+                    return res
+                }
+                
+                // Searched this subsegment -> Start at the beginning of the next one
+                cur = nil
+            }
+        }
+        
+        return nil
+    }
+    
+    /**
+     * Find the address of some string.
+     *
+     * - Parameter toFind: The string to find
+     * - Parameter startAt: The address at which to start the search, defaults to the base address
+     *
+     * - Returns: The address at which the string was found or nil
+     */
+    public func addrOf(_ toFind: String, startAt: UInt64? = nil) -> UInt64? {
+        var cur = startAt
+        
+        for s in subSegments {
+            if cur == nil {
+                cur = s.baseAddress
+            }
+            
+            if cur.unsafelyUnwrapped >= s.baseAddress && cur.unsafelyUnwrapped < s.endAddress {
+                if let res = s.addrOf(toFind, startAt: cur) {
+                    return res
+                }
+                
+                // Searched this subsegment -> Start at the beginning of the next one
+                cur = nil
+            }
+        }
+        
+        return nil
+    }
+    
+    /**
+     * Get the instruction at some address.
+     *
+     * - Parameter at: The address of the instruction
+     *
+     * - Returns: The instruction or nil if **at** is out of bounds
+     */
+    public func instruction(at: UInt64) -> UInt32? {
+        for s in subSegments {
+            if at >= s.baseAddress && at < s.endAddress {
+                return s.instruction(at: at)
+            }
+        }
+        
+        return nil
+    }
+    
+    /**
+     * Get the UInt64 value at some address.
+     *
+     * - Parameter at: The address
+     *
+     * - Returns: The UInt64 value or nil if **at** is out of bounds
+     */
+    public func r64(at: UInt64) -> UInt64? {
+        for s in subSegments {
+            if at >= s.baseAddress && at < s.endAddress {
+                return s.r64(at: at)
+            }
+        }
+        
+        return nil
+    }
+}
+
+public class PatchfinderSubSegment {
     public let data: Data
     public var baseAddress: UInt64
     public let name: String?
+    
+    public var endAddress: UInt64 {
+        baseAddress + UInt64(data.count)
+    }
     
     public init(data: Data, baseAddress: UInt64, name: String? = nil) {
         self.data        = data
