@@ -285,6 +285,19 @@ public struct AArch64Instr {
             return (regDst: dst, regSrc: src, imm: imm12)
         }
         
+        public static func ldr32(_ instruction: UInt32) -> LdrImmArgs? {
+            if ((instruction & 0xFFC00000) != 0xB9400000) {
+                return nil
+            }
+            
+            let dst = UInt8(instruction        & 0x1F)
+            let src = UInt8((instruction >> 5) & 0x1F)
+            
+            var imm12 = UInt16(((instruction >> 10) & 0xFFF) << 2)
+            
+            return (regDst: dst, regSrc: src, imm: imm12)
+        }
+        
         public typealias StrImmArgs = (regSrc: UInt8, regDst: UInt8, imm: UInt16)
         public static func str(_ instruction: UInt32) -> StrImmArgs? {
             if ((instruction & 0xFFC00000) != 0xF9000000) {
